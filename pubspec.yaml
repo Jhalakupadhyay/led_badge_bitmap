@@ -1,0 +1,30 @@
+name: led_badge_bitmap
+description: >-
+  Generate monochrome bitmaps for LED name badges and dot-matrix displays
+  from text or images, for any width and height, with clear errors when the
+  content does not fit.
+version: 0.1.0
+repository: https://github.com/Jhalakupadhyay/led_badge_bitmap
+issue_tracker: https://github.com/Jhalakupadhyay/led_badge_bitmap/issues
+
+topics:
+  - led
+  - bitmap
+  - badge
+  - image
+  - pixel-art
+
+environment:
+  sdk: ^3.6.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  image: ^4.5.0
+  meta: ^1.15.0
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
