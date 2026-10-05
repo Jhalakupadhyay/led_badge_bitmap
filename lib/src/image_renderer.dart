@@ -11,19 +11,22 @@ enum ImageFit {
   /// Scales the content so it fills the badge height, keeping its aspect
   /// ratio.
   ///
-  /// Throws [ContentOverflowException] when the scaled content is wider than
-  /// the badge, i.e. the image is too wide for the badge's ratio.
+  /// For a badge-sized bitmap, throws [ContentOverflowException] when the
+  /// scaled content is wider than the badge, i.e. the image is too wide for
+  /// the badge's ratio. A content strip takes whatever width it needs.
   fitHeight,
 
   /// Scales the content down (or up) until it fits inside the badge, keeping
   /// its aspect ratio. Never overflows.
+  ///
+  /// A content strip has no width limit, so there this matches [fitHeight].
   contain,
 
   /// Uses the content at its original pixel size, for images already drawn
   /// as pixel art.
   ///
   /// Throws [ContentOverflowException] when the content is larger than the
-  /// badge.
+  /// badge. A content strip only checks the height.
   none,
 }
 
@@ -47,9 +50,12 @@ enum ImageInk {
 const int _maxWorkingSize = 1024;
 
 /// Converts encoded image [bytes] into a mask sized for the badge.
-PixelMask renderImage(
+///
+/// A `null` [width] means the content may be as wide as it needs, as for a
+/// content strip; only [height] is then enforced.
+PixelMask imageToMask(
   Uint8List bytes, {
-  required int width,
+  required int? width,
   required int height,
   required ImageFit fit,
   required ImageInk ink,
@@ -107,18 +113,24 @@ PixelMask renderImage(
         height,
       ),
     ImageFit.contain => () {
-        final scale = math.min(width / contentWidth, height / contentHeight);
+        final heightScale = height / contentHeight;
+        final scale = width == null
+            ? heightScale
+            : math.min(width / contentWidth, heightScale);
         return (
-          (contentWidth * scale).round().clamp(1, width),
+          width == null
+              ? math.max(1, (contentWidth * scale).round())
+              : (contentWidth * scale).round().clamp(1, width),
           (contentHeight * scale).round().clamp(1, height),
         );
       }(),
   };
-  if (targetWidth > width || targetHeight > height) {
+  if ((width != null && targetWidth > width) || targetHeight > height) {
     throw ContentOverflowException(
       requiredWidth: targetWidth,
       requiredHeight: targetHeight,
-      availableWidth: width,
+      // A strip has room for any width, so only the height overflows.
+      availableWidth: width ?? targetWidth,
       availableHeight: height,
     );
   }

@@ -1,3 +1,12 @@
+## Unreleased
+
+* `BadgeContent`: an immutable content strip as tall as the badge and as
+  wide as its content, with the same encoders as `BadgeBitmap`.
+* `BadgeBitmapGenerator.renderText`, `renderStyledText` and `renderImage`
+  return a `BadgeContent` and only throw `ContentOverflowException` when the
+  content is taller than the badge.
+* `fromText`, `fromStyledText` and `fromImage` are unchanged.
+
 ## 0.1.0
 
 * Initial release.
