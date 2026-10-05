@@ -5,7 +5,9 @@
 * `BadgeBitmapGenerator.renderText`, `renderStyledText` and `renderImage`
   return a `BadgeContent` and only throw `ContentOverflowException` when the
   content is taller than the badge.
-* `fromText`, `fromStyledText` and `fromImage` are unchanged.
+* `fromText`, `fromStyledText` and `fromImage` keep their API.
+* Images are downscaled with exact area weighting, so symmetric shapes stay
+  symmetric when the image size does not divide evenly into the badge.
 
 ## 0.1.0
 
