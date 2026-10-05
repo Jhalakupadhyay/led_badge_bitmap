@@ -134,6 +134,26 @@ void main() {
       );
     });
 
+    test('keeps symmetric shapes symmetric when the scale is uneven', () {
+      // A 61-pixel circle scaled to 11 rows is about 5.5 source pixels per
+      // LED, so whole-pixel bins would sample its two halves differently.
+      final image = img.Image(width: 66, height: 66, numChannels: 4);
+      img.fill(image, color: _white);
+      img.fillCircle(image, x: 33, y: 33, radius: 30, color: _black);
+
+      final bitmap = generator.fromImage(img.encodePng(image));
+      final rows =
+          bitmap.rows.map((row) => row.sublist(16, 27)).toList(growable: false);
+
+      expect(bitmap.litPixelCount, greaterThan(0));
+      expect(rows.reversed.toList(), rows, reason: 'top and bottom match');
+      expect(
+        [for (final row in rows) row.reversed.toList()],
+        rows,
+        reason: 'left and right match',
+      );
+    });
+
     test('throws EmptyContentException for a blank image', () {
       expect(
         () => generator.fromImage(_png(width: 10, height: 10)),

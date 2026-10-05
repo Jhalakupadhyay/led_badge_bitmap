@@ -93,3 +93,26 @@ BadgeBitmap placeOnBadge(
   }
   return BadgeBitmap.fromBuffer(width, height, pixels);
 }
+
+/// Places [content] on a strip [height] pixels tall and exactly as wide as
+/// the content, throwing [ContentOverflowException] when it is too tall.
+BadgeContent placeInStrip(PixelMask content, {required int height}) {
+  if (content.height > height) {
+    throw ContentOverflowException(
+      requiredWidth: content.width,
+      requiredHeight: content.height,
+      // A strip has room for any width, so only the height overflows.
+      availableWidth: content.width,
+      availableHeight: height,
+    );
+  }
+  final width = content.width;
+  final dy = (height - content.height) ~/ 2;
+  final pixels = Uint8List(width * height);
+  for (var y = 0; y < content.height; y++) {
+    for (var x = 0; x < width; x++) {
+      if (content.get(x, y)) pixels[(y + dy) * width + x] = 1;
+    }
+  }
+  return BadgeContent.fromBuffer(width, height, pixels);
+}

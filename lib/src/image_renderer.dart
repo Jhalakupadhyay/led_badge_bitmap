@@ -11,19 +11,22 @@ enum ImageFit {
   /// Scales the content so it fills the badge height, keeping its aspect
   /// ratio.
   ///
-  /// Throws [ContentOverflowException] when the scaled content is wider than
-  /// the badge, i.e. the image is too wide for the badge's ratio.
+  /// For a badge-sized bitmap, throws [ContentOverflowException] when the
+  /// scaled content is wider than the badge, i.e. the image is too wide for
+  /// the badge's ratio. A content strip takes whatever width it needs.
   fitHeight,
 
   /// Scales the content down (or up) until it fits inside the badge, keeping
   /// its aspect ratio. Never overflows.
+  ///
+  /// A content strip has no width limit, so there this matches [fitHeight].
   contain,
 
   /// Uses the content at its original pixel size, for images already drawn
   /// as pixel art.
   ///
   /// Throws [ContentOverflowException] when the content is larger than the
-  /// badge.
+  /// badge. A content strip only checks the height.
   none,
 }
 
@@ -47,9 +50,12 @@ enum ImageInk {
 const int _maxWorkingSize = 1024;
 
 /// Converts encoded image [bytes] into a mask sized for the badge.
-PixelMask renderImage(
+///
+/// A `null` [width] means the content may be as wide as it needs, as for a
+/// content strip; only [height] is then enforced.
+PixelMask imageToMask(
   Uint8List bytes, {
-  required int width,
+  required int? width,
   required int height,
   required ImageFit fit,
   required ImageInk ink,
@@ -107,38 +113,46 @@ PixelMask renderImage(
         height,
       ),
     ImageFit.contain => () {
-        final scale = math.min(width / contentWidth, height / contentHeight);
+        final heightScale = height / contentHeight;
+        final scale = width == null
+            ? heightScale
+            : math.min(width / contentWidth, heightScale);
         return (
-          (contentWidth * scale).round().clamp(1, width),
+          width == null
+              ? math.max(1, (contentWidth * scale).round())
+              : (contentWidth * scale).round().clamp(1, width),
           (contentHeight * scale).round().clamp(1, height),
         );
       }(),
   };
-  if (targetWidth > width || targetHeight > height) {
+  if ((width != null && targetWidth > width) || targetHeight > height) {
     throw ContentOverflowException(
       requiredWidth: targetWidth,
       requiredHeight: targetHeight,
-      availableWidth: width,
+      // A strip has room for any width, so only the height overflows.
+      availableWidth: width ?? targetWidth,
       availableHeight: height,
     );
   }
 
-  // Area-average the ink levels into the target grid, then threshold.
+  // Area-average the ink levels into the target grid, then threshold. Each
+  // target pixel covers a fractional span of source pixels, and source
+  // pixels on a span edge count by how much of them falls inside it.
+  final rowWeights = _spanWeights(top, contentHeight, targetHeight);
+  final columnWeights = _spanWeights(left, contentWidth, targetWidth);
+  final area = contentWidth / targetWidth * (contentHeight / targetHeight);
+  // Tolerance for rounding in the fractional weights.
+  final minimum = cutoff * area - 1e-6;
   final mask = PixelMask(targetWidth, targetHeight);
   for (var ty = 0; ty < targetHeight; ty++) {
-    final y0 = top + ty * contentHeight ~/ targetHeight;
-    final y1 = math.max(y0 + 1, top + (ty + 1) * contentHeight ~/ targetHeight);
     for (var tx = 0; tx < targetWidth; tx++) {
-      final x0 = left + tx * contentWidth ~/ targetWidth;
-      final x1 =
-          math.max(x0 + 1, left + (tx + 1) * contentWidth ~/ targetWidth);
-      var sum = 0;
-      for (var y = y0; y < y1; y++) {
-        for (var x = x0; x < x1; x++) {
-          sum += level[y * image.width + x];
+      var sum = 0.0;
+      for (final (y, rowWeight) in rowWeights[ty]) {
+        for (final (x, columnWeight) in columnWeights[tx]) {
+          sum += level[y * image.width + x] * rowWeight * columnWeight;
         }
       }
-      if (sum >= cutoff * (y1 - y0) * (x1 - x0)) mask.set(tx, ty);
+      if (sum >= minimum) mask.set(tx, ty);
     }
   }
   if (mask.isEmpty) {
@@ -148,6 +162,27 @@ PixelMask renderImage(
     );
   }
   return mask;
+}
+
+/// Splits [sourceLength] source pixels starting at [start] into
+/// [targetLength] equal spans, returning for each span the source indices it
+/// overlaps and by how much (from 0 to 1).
+List<List<(int, double)>> _spanWeights(
+  int start,
+  int sourceLength,
+  int targetLength,
+) {
+  final step = sourceLength / targetLength;
+  return List.generate(targetLength, (t) {
+    final from = t * step;
+    final to = (t + 1) * step;
+    final weights = <(int, double)>[];
+    for (var s = from.floor(); s < to.ceil() && s < sourceLength; s++) {
+      final overlap = math.min(to, s + 1.0) - math.max(from, s.toDouble());
+      if (overlap > 0) weights.add((start + s, overlap));
+    }
+    return weights;
+  }, growable: false);
 }
 
 bool _hasTransparency(img.Image image) {

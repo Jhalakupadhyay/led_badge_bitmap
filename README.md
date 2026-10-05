@@ -16,6 +16,7 @@ it throws an error that says how much space the content needed.
   space around the image is cropped automatically.
 - Typed errors: `ContentOverflowException`, `UnsupportedCharacterException`,
   `ImageDecodeException` and `EmptyContentException`.
+- Content strips of any width for scrolling badges, with the same encoders.
 - Output as hex segments, raw bytes, column words, or ASCII art.
 
 ## Installation
@@ -99,6 +100,26 @@ try {
 `BadgeBitmapException` is a sealed class, so a `switch` on it must cover every
 error type.
 
+### Content wider than the badge
+
+LED badges scroll long content, so it does not have to fit. The `render`
+methods return a `BadgeContent` strip that is as tall as the badge and as
+wide as the content needs:
+
+```dart
+final strip = generator.renderText('Hello World');
+strip.width;           // 74, wider than the 44-pixel badge
+strip.height;          // 11
+strip.toHexSegments(); // same encoders as BadgeBitmap
+
+final styled = await generator.renderStyledText('Hello World');
+final banner = generator.renderImage(bytes);
+```
+
+They only throw `ContentOverflowException` when the content is taller than
+the badge. In `renderImage`, `fitHeight` and `contain` both scale the image to
+the badge height, and `none` keeps its original size.
+
 ### Using the bitmap
 
 ```dart
@@ -118,12 +139,12 @@ significant bit. Many Bluetooth LED name badges accept data in this format.
 
 ## Roadmap
 
-This is an early version. Today every method returns a single badge-sized
-frame and throws `ContentOverflowException` when content is wider than the
-badge. Real LED badges scroll long content instead, so the next releases will:
+This is an early version. The `from` methods return a single badge-sized
+frame and throw `ContentOverflowException` when content is wider than the
+badge, while the `render` methods return content strips of any width. The
+next releases will:
 
-- render content strips of any width and only enforce the badge size in
-  `fixed` mode,
+- only enforce the badge size in `fixed` mode,
 - generate animation frames for common badge modes (left, right, up, down,
   fixed, flash, marquee and more),
 - build ready-to-send Bluetooth packets for common LED badges.

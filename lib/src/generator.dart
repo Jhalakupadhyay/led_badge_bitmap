@@ -10,18 +10,24 @@ import 'layout.dart';
 import 'styled_text_renderer.dart';
 import 'text_renderer.dart';
 
-/// Generates [BadgeBitmap]s for a badge of a fixed size.
+/// Generates [BadgeBitmap]s and [BadgeContent] strips for a badge of a fixed
+/// size.
 ///
 /// ```dart
 /// const generator = BadgeBitmapGenerator(width: 44, height: 11);
 ///
 /// final text = generator.fromText('Hello');
 /// final logo = generator.fromImage(pngBytes);
+/// final strip = generator.renderText('Hello World');
 /// ```
 ///
-/// Every method returns a bitmap exactly [width] x [height] pixels, or throws
-/// a [BadgeBitmapException] (most often a [ContentOverflowException]) when
-/// the content cannot fit.
+/// The `from` methods return a bitmap exactly [width] x [height] pixels, or
+/// throw a [BadgeBitmapException] (most often a [ContentOverflowException])
+/// when the content cannot fit.
+///
+/// The `render` methods return a [BadgeContent] strip [height] pixels tall
+/// and as wide as the content needs, for badges that scroll. They only throw
+/// [ContentOverflowException] when the content is taller than the badge.
 class BadgeBitmapGenerator {
   /// Creates a generator for a badge [width] pixels wide and [height] pixels
   /// tall. Both must be greater than zero.
@@ -92,15 +98,7 @@ class BadgeBitmapGenerator {
     BadgeAlignment alignment = BadgeAlignment.center,
   }) async {
     checkBadgeSize(width, height);
-    _checkThreshold(threshold);
-    final effectiveStyle = (style ?? const TextStyle()).copyWith(
-      fontSize: style?.fontSize ?? height.toDouble(),
-    );
-    final mask = await renderStyledText(
-      text,
-      style: effectiveStyle,
-      threshold: threshold,
-    );
+    final mask = await _styledTextMask(text, style, threshold);
     return placeOnBadge(
       mask,
       width: width,
@@ -135,7 +133,7 @@ class BadgeBitmapGenerator {
   }) {
     checkBadgeSize(width, height);
     _checkThreshold(threshold);
-    final mask = renderImage(
+    final mask = imageToMask(
       bytes,
       width: width,
       height: height,
@@ -148,6 +146,100 @@ class BadgeBitmapGenerator {
       width: width,
       height: height,
       alignment: alignment,
+    );
+  }
+
+  /// Renders [text] with the built-in 8x11 bitmap font into a strip as wide
+  /// as the text needs.
+  ///
+  /// Works like [fromText], except that text wider than the badge is kept
+  /// whole instead of throwing. The strip is [height] pixels tall with the
+  /// text centred vertically.
+  ///
+  /// Throws:
+  /// * [ContentOverflowException] if the text is taller than the badge (the
+  ///   font is 11 pixels tall; on shorter badges only the lit rows count).
+  /// * [UnsupportedCharacterException] if the text has characters outside
+  ///   [supportedCharacters], unless [skipUnsupportedCharacters] is true.
+  /// * [EmptyContentException] if [text] is empty or nothing drawable remains.
+  BadgeContent renderText(
+    String text, {
+    bool skipUnsupportedCharacters = false,
+  }) {
+    checkBadgeSize(width, height);
+    final mask = renderBuiltInText(
+      text,
+      maxHeight: height,
+      skipUnsupportedCharacters: skipUnsupportedCharacters,
+    );
+    return placeInStrip(mask, height: height);
+  }
+
+  /// Renders [text] with a Flutter [style] into a strip as wide as the text
+  /// needs.
+  ///
+  /// Works like [fromStyledText], except that text wider than the badge is
+  /// kept whole instead of throwing.
+  ///
+  /// Requires the Flutter engine, so call it after
+  /// `WidgetsFlutterBinding.ensureInitialized()` (or inside a widget test).
+  ///
+  /// Throws [ContentOverflowException] if the rendered text is taller than
+  /// the badge, and [EmptyContentException] if [text] has no visible pixels.
+  Future<BadgeContent> renderStyledText(
+    String text, {
+    TextStyle? style,
+    double threshold = 0.5,
+  }) async {
+    checkBadgeSize(width, height);
+    final mask = await _styledTextMask(text, style, threshold);
+    return placeInStrip(mask, height: height);
+  }
+
+  /// Converts an encoded image (PNG, JPEG, GIF, BMP, WebP and others) into a
+  /// strip as wide as the scaled image needs.
+  ///
+  /// Works like [fromImage], except that the badge width is not a limit:
+  /// [ImageFit.fitHeight] and [ImageFit.contain] both scale the content to
+  /// the badge height, and [ImageFit.none] keeps its original size.
+  ///
+  /// Throws:
+  /// * [ContentOverflowException] if the image is taller than the badge,
+  ///   which can only happen with [ImageFit.none].
+  /// * [ImageDecodeException] if [bytes] is not a supported image.
+  /// * [EmptyContentException] if no pixels would be lit.
+  BadgeContent renderImage(
+    Uint8List bytes, {
+    ImageFit fit = ImageFit.fitHeight,
+    ImageInk ink = ImageInk.auto,
+    double threshold = 0.5,
+  }) {
+    checkBadgeSize(width, height);
+    _checkThreshold(threshold);
+    final mask = imageToMask(
+      bytes,
+      width: null,
+      height: height,
+      fit: fit,
+      ink: ink,
+      threshold: threshold,
+    );
+    return placeInStrip(mask, height: height);
+  }
+
+  Future<PixelMask> _styledTextMask(
+    String text,
+    TextStyle? style,
+    double threshold,
+  ) {
+    _checkThreshold(threshold);
+    final effectiveStyle = (style ?? const TextStyle()).copyWith(
+      fontSize: style?.fontSize ?? height.toDouble(),
+    );
+    return styledTextToMask(
+      text,
+      style: effectiveStyle,
+      threshold: threshold,
     );
   }
 

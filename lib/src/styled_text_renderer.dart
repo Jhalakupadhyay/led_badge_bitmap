@@ -9,7 +9,7 @@ import 'layout.dart';
 /// loaded can be used.
 ///
 /// The result is trimmed to the lit pixels on both axes.
-Future<PixelMask> renderStyledText(
+Future<PixelMask> styledTextToMask(
   String text, {
   required TextStyle style,
   required double threshold,
