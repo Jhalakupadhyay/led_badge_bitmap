@@ -15,6 +15,7 @@ library;
 import 'src/generator.dart';
 
 export 'src/badge_bitmap.dart' show BadgeBitmap, BadgeContent;
+export 'src/badge_mode.dart';
 export 'src/exceptions.dart';
 export 'src/generator.dart';
 export 'src/image_renderer.dart' show ImageFit, ImageInk;

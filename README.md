@@ -17,6 +17,7 @@ it throws an error that says how much space the content needed.
 - Typed errors: `ContentOverflowException`, `UnsupportedCharacterException`,
   `ImageDecodeException` and `EmptyContentException`.
 - Content strips of any width for scrolling badges, with the same encoders.
+- `BadgeMode` names the display modes badges support, with their codes.
 - Output as hex segments, raw bytes, column words, or ASCII art.
 
 ## Installation
@@ -119,6 +120,30 @@ final banner = generator.renderImage(bytes);
 They only throw `ContentOverflowException` when the content is taller than
 the badge. In `renderImage`, `fitHeight` and `contain` both scale the image to
 the badge height, and `none` keeps its original size.
+
+### Display modes
+
+`BadgeMode` lists the display modes built into common LED name badges.
+Each mode has the `code` badges use for it:
+
+| Mode        | Code   | What it looks like                                             |
+| ----------- | ------ | -------------------------------------------------------------- |
+| `left`      | `0x00` | Content enters from the right edge and scrolls left.           |
+| `right`     | `0x01` | Content enters from the left edge and scrolls right.           |
+| `up`        | `0x02` | Content enters from the bottom edge and scrolls up.            |
+| `down`      | `0x03` | Content enters from the top edge and scrolls down.             |
+| `fixed`     | `0x04` | Content stays still and centred, so it must fit the badge.     |
+| `animation` | `0x05` | Content is split into badge-wide pages shown one by one.       |
+| `snowflake` | `0x06` | Rows fall into place from the top, then fall away.             |
+| `picture`   | `0x07` | Two lines move outward from the centre and reveal the content. |
+| `laser`     | `0x08` | A beam sweeps across and draws the content column by column.   |
+
+```dart
+final mode = BadgeMode.fromCode(0x00); // BadgeMode.left
+mode.code;                              // 0
+```
+
+`fromCode` throws an `ArgumentError` for codes outside `0x00` to `0x08`.
 
 ### Using the bitmap
 
